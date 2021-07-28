@@ -1,0 +1,207 @@
+clear
+close all
+clc
+
+set(groot,'defaultAxesTickLabelInterpreter','latex');
+set(groot,'defaulttextinterpreter','latex');
+set(groot,'defaultLegendInterpreter','latex');
+
+%% planform shape
+
+alpha = deg2rad(9.2);
+
+AR = 6;
+S = 1;
+lambda = 0.25;
+Lambda = deg2rad(-30);
+Gamma = deg2rad(0);
+
+M = 4;
+N = 96;
+
+%
+b = sqrt(AR*S);
+cMAC = S/b;
+cfun = @(eta) 2*S/((1+lambda)*b) * (1-(1-lambda)*abs(eta));
+xLEfun = @(eta) 1/4*cfun(0) - 1/4*cfun(eta) + tan(Lambda)*abs(b/2 * eta);
+xTEfun = @(eta) 1/4*cfun(0) + 3/4*cfun(eta) + tan(Lambda)*abs(b/2 * eta);
+
+xWfun = @(eta, xi) (1-xi).*xLEfun(eta) + xi.*xTEfun(eta);
+yWfun = @(eta, xi) b/2 * eta;
+zWfun = @(eta, xi) tan(Gamma)*abs(b/2 * eta);
+
+%% spanwise panels
+
+% vortices
+etaV = cos((2*(0:N))/(2*N) *pi);
+% controls
+etaC = cos((2*(0:N-1) + 1)/(2*N) *pi);
+
+%% chordwise panels
+
+% vortices
+xiV = 1/2 - 1/2 * cos((2*(1:M) - 1)/(2*M+1) *pi);
+% controls
+xiC = 1/2 - 1/2 * cos((2*(1:M))/(2*M+1) *pi);
+
+%% vortex lattice
+
+% control points
+[etaC, xiC] = meshgrid(etaC, xiC);
+% left vortex endpoints
+[etaVL, xiVL] = meshgrid(etaV(1:end-1), xiV);
+% right vortex endpoints
+[etaVR, xiVR] = meshgrid(etaV(2:end), xiV);
+
+xC = reshape(xWfun(etaC, xiC)', 1, M*N);
+yC = reshape(yWfun(etaC, xiC)', 1, M*N);
+zC = reshape(zWfun(etaC, xiC)', 1, M*N);
+
+xVL = reshape(xWfun(etaVL, xiVL)', 1, M*N);
+yVL = reshape(yWfun(etaVL, xiVL)', 1, M*N);
+zVL = reshape(zWfun(etaVL, xiVL)', 1, M*N);
+
+xVR = reshape(xWfun(etaVR, xiVR)', 1, M*N);
+yVR = reshape(yWfun(etaVR, xiVR)', 1, M*N);
+zVR = reshape(zWfun(etaVR, xiVR)', 1, M*N);
+
+xyzC = [xC; yC; zC];
+xyzVL = [xVL; yVL; zVL];
+xyzVR = [xVR; yVR; zVR];
+
+ns = cross((xyzVL-xyzC), (xyzVR-xyzC))./vecnorm(cross((xyzVL-xyzC), (xyzVR-xyzC)));
+
+% aileron
+% TEind = N*(M-1):N*M;
+% 
+% ns(1, TEind(10:floor(N/2)-5)) = sind(-20);
+% ns(3, TEind(10:floor(N/2)-5)) = cosd(-20);
+
+
+%% Linear System and Results
+
+A = vorlatA(xyzC, xyzVL, xyzVR, ns);
+RHS = vorlatRHS(alpha, ns, zeros(1, M*N)');
+G = A\RHS;
+Gmn = reshape(G, N, M)';
+
+% normalization methods
+Gbarmn = Gmn./(2/pi*(1 - etaC.^2).^(0.5));
+gmn = Gmn./reshape((xC - (xVL+xVR)/2), M, N);
+gbarmn = Gmn./reshape((xC - (xVL+xVR)/2), M, N)./((pi/2)^2 * sqrt((1-xiVL)./xiVL) .* sqrt(1-etaC.^2));
+
+%% trefftz plane
+
+yCtfz = b/2 * cos((2*(0:N-1) + 1)/(2*N) *pi);
+yVtfz = b/2 * cos((2*(0:N))/(2*N) *pi);
+
+Gtfz = sum(Gmn, 1);
+
+wtfz = sum(Gtfz./(2*pi*(yCtfz' - yVtfz(1:end-1))) + Gtfz./(2*pi*(yVtfz(2:end) - yCtfz')), 2);
+aitfz = atan2(wtfz, 1);
+
+%% aero coefficients
+CL = sum(2*G.*abs((yVL-yVR)'))/S;
+CM = sum(-2*G.*abs((yVL-yVR)').*(xVR+xVL)'/(2*cMAC))/S;
+
+Cl = 2*Gtfz./cfun(2/b*yCtfz);
+Ccl = Cl.*cfun(2/b*yCtfz)/cMAC;
+
+Cltfz = 2*Gtfz.*abs((yVtfz(2:end)-yVtfz(1:end-1))) .*cos(aitfz')/S;
+CLtfz = sum(Cltfz);
+
+CDitfz = sum(Gtfz.*abs((yVtfz(2:end)-yVtfz(1:end-1))) .*sin(-aitfz'))/S;
+
+e = CLtfz^2 / (pi*AR*CDitfz);
+
+disp("CL = " + CLtfz);
+disp("CM = " + CM);
+disp("CDi = " + CDitfz);
+disp("e = " + e);
+
+% panel chords
+cxi = 2*(xiC(:,1)-xiV');
+
+%% plot geometry
+
+% figure
+% hold on
+% axis equal
+% set(gca, 'ydir', 'reverse')
+% ylim([-cfun(0), 2*cfun(0)])
+% xlim(1.1*[-b/2, b/2])
+% fplot(@(x) xLEfun(2*x/b), [-b/2, b/2], 'color', 'black', 'linewidth', 2)
+% fplot(@(x) xTEfun(2*x/b), [-b/2, b/2], 'color', 'black', 'linewidth', 2)
+% plot([yVL; yVL; yVR; yVR], [b*ones(1, M*N); xVL; xVR; b*ones(1, M*N)])
+% plot(yC, xC, 'marker', '.', 'color', 'black', 'linestyle', 'none')
+
+%% plot results
+
+% % xi eta plot
+% figure
+% hold on
+% grid on
+% %axis equal
+% set(gca, 'ydir', 'reverse')
+% xlim([-1, 1])
+% ylim([0 1])
+% h = contourf(etaC, repmat(xiV', 1, N), gbarmn, 16, 'edgecolor', 'none');
+% % Gmn./((pi/2)^2 * sqrt((1-xiVL)./xiVL) .* sqrt(1-etaC.^2))
+% % set(h, 'EdgeColor', 'none');
+% % h.FaceColor = 'interp';
+% ylabel('$\xi$')
+% xlabel('$\eta$')
+% title('Singularity Anomaly')
+% % %view(3)
+
+% % x y plot
+% figure
+% hold on
+% grid on
+% axis equal
+% set(gca, 'ydir', 'reverse')
+% xlim(1.1*[-b/2, b/2])
+% %ylim([0 b])
+% h = pcolor(yWfun((etaVL+etaVR)/2, xiC), xWfun((etaVL+etaVR)/2, repmat(xiV', 1, N)), Gmn);
+% % loading anomaly
+% %(Gmn./reshape((xC - (xVL+xVR)/2), M, N))./((pi/2)^2 * sqrt((1-xiVL)./xiVL) .* sqrt(1-etaC.^2));
+% set(h, 'EdgeColor', 'none');
+% h.FaceColor = 'interp';
+% ylabel('$x$')
+% xlabel('$y$')
+% title('Singularity Strength')
+
+% trefftz plot
+figure
+hold on
+grid on
+% yyaxis left
+plot(2/b*yCtfz, Cl)
+plot(2/b*yCtfz, Ccl)
+% yyaxis right
+plot(2/b*yCtfz, atan2(wtfz, 1))
+
+% spanload at chord stations
+% figure
+% hold on
+% grid on
+% yyaxis left
+% ylim([0, 1])
+% plot(2/b.*yCtfz, 2*Gmn./cxi, 'linestyle', '-', 'marker', 'none')
+% yyaxis right
+% ylim([0, 1])
+% plot(2/b.*yCtfz, 2*Gmn./cxi .*cfun(2/b*yCtfz)/cMAC, 'linestyle', '-', 'marker', 'none')
+
+% % normalized spanload at chord stations
+% figure
+% hold on
+% grid on
+% plot(etaC(1,:)', 2*Gmn./cxi ./ sqrt(1 - etaC(1,:).^2))
+% 
+% % normalized chordload at span stations
+% figure
+% hold on
+% grid on
+% plot(xiV', 2*Gmn./cxi ./ sqrt((1-xiV')./xiV'))
+
+%%
