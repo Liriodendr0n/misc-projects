@@ -1,0 +1,4 @@
+[deps]
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"

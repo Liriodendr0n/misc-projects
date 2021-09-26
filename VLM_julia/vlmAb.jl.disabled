@@ -1,0 +1,40 @@
+using LinearAlgebra
+
+function vlma(xyzC, xyzVL, xyzVR, n)
+
+    Rc = 1e-9
+    len = size(n, 1)
+    A = zeros(len, len)
+
+    t = [1, 0, 0]
+    # slowwwwwwww, but why????
+    for i in 1:len
+        for j in 1:len
+
+            ltv = sibiotsavart(xyzC[i,:], xyzVL[j,:], t, Rc)
+            bv = biotsavart(xyzC[i,:], xyzVL[j,:], xyzVR[j,:], Rc)
+            rtv = sibiotsavart(xyzC[i,:], xyzVR[j,:], t, Rc)
+
+            v = ltv + bv - rtv
+
+            A[i, j] = dot(v, n[i,:])
+        end
+    end
+    
+    return A
+    
+end
+
+function vlmb(α, n)
+    vinf = [cos(α), 0, sin(α)]
+    
+    len = size(n, 1)
+    b = zeros(len)
+
+    for j in 1:len
+        b[j] = dot(vinf, n[j,:])
+    end
+
+    return b
+
+end
