@@ -1,0 +1,81 @@
+clear
+close all
+clc
+
+set(groot,'defaultAxesTickLabelInterpreter','latex');
+set(groot,'defaulttextinterpreter','latex');
+set(groot,'defaultLegendInterpreter','latex');
+
+syms x w z(w) theta
+
+%% find coefficients
+
+Pstencil = [0 1 2 53 6];
+Cstencil = [0 1 2 3 4];
+
+lagrpol = @(j, x0) prod((x - x0(1:end ~= j)')./(x0(j) - x0(1:end ~= j)'), 1);
+for i = 1:length(Pstencil)
+    if length(Pstencil) == 1
+        l = -2*x;
+    else
+        Pl(i) = lagrpol(length(Pstencil)-i+1, Pstencil);
+    end
+end
+for i = 1:length(Cstencil)
+    if length(Cstencil) == 1
+        l = -2*x;
+    else
+        Cl(i) = lagrpol(length(Cstencil)-i+1, Cstencil);
+    end
+end
+
+alpha = [zeros(1, max(Pstencil)), -1, 1];
+betai = int(Pl, x, -1, 0);
+gamma = [zeros(1, max(Cstencil)), -1, 1];
+deltai = int(Cl, x, 0, 1);
+
+for i = 1:length(Pstencil)
+    beta(Pstencil(i)+1) = betai(i);
+end
+for i = 1:length(Cstencil)
+    delta(Cstencil(i)+1) = deltai(i);
+end
+beta = [beta 0];
+delta = [0 delta];
+
+
+n = length(beta)-1;
+
+s(theta) = exp(1i*theta);
+
+A(w) = delta(end).*sum(beta(1:end-1).*w.^(0:n-1));
+B(w) = sum((delta(1:end-1)-delta(end)*alpha(1:end-1)).*w.^(0:n-1));
+C(w) = -sum(gamma.*w.^(0:n));
+
+h1 = (-B + sqrt(B.^2 - 4.*A.*C))./(2.*A);
+h2 = (-B - sqrt(B.^2 - 4.*A.*C))./(2.*A);
+
+f1 = matlabFunction(h1(s));
+f2 = matlabFunction(h2(s));
+
+x1t = @(t) real(f1(t));
+y1t = @(t) imag(f1(t));
+x2t = @(t) real(f2(t));
+y2t = @(t) imag(f2(t));
+
+figure
+hold on
+grid on
+grid minor
+axis equal
+% plot(linspace(-pi, pi, 300), x1t(linspace(-pi, pi, 300)))
+% plot(linspace(-pi, pi, 300), x2t(linspace(-pi, pi, 300)))
+plot(x1t(linspace(-pi, pi, 300)), y1t(linspace(-pi, pi, 300)), 'marker', '.', 'linestyle', 'none')
+plot(x2t(linspace(-pi, pi, 300)), y2t(linspace(-pi, pi, 300)), 'marker', '.', 'linestyle', 'none')
+
+
+
+
+
+
+

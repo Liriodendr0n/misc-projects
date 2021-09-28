@@ -1,0 +1,51 @@
+clear
+close all
+clc
+
+syms x w z(w) theta
+
+%% find coefficients
+
+stencil = [0 1 3 5 6];
+
+n = length(stencil);
+
+lagrpol = @(j) prod((x - stencil(1:end ~= j)')./(stencil(j) - stencil(1:end ~= j)'), 1);
+for i = 1:n
+    if n == 1
+        l = 2*x;
+    else
+        l(i) = lagrpol(n-i+1);
+    end
+end
+
+alpha = [zeros(1, max(stencil)-1), -1, 1];
+betai = int(l, x, 0, 1);
+
+for i = 1:length(stencil)
+    beta(stencil(i)+1) = betai(i);
+end
+n = length(beta);
+
+h(w) = sum(alpha.*w.^(1:n))./sum(beta.*w.^(1:n));
+
+s(theta) = exp(1i*theta);
+
+f = matlabFunction(h(s));
+
+xt = @(t) real(f1(t));
+yt = @(t) imag(f1(t));
+
+figure
+hold on
+grid on
+grid minor
+axis equal
+
+fplot(xt, yt, [-pi pi], 'meshdensity', 100)
+
+
+
+
+
+

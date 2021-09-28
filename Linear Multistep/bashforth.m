@@ -2,8 +2,6 @@ function [t, y, f] = bashforth(f, tspan, h, stencil, ystart)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 
-ts = tspan(1):h:tspan(2);
-
 %% calculate coefficients b
 lagrpol = @(x, x0, j) prod((x - x0(1:end ~= j)')./(x0(j) - x0(1:end ~= j)'), 1);
 
@@ -39,7 +37,7 @@ for ti = 1:length(ts)
     yt(:,ti+1) = ytp1;
     ft(:,ti+1) = fhist(:,1);
 end
-
+%% gather results
 t = ts;
 y = yt(:,1:end-1);
 f = ft;

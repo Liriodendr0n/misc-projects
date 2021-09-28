@@ -1,0 +1,51 @@
+clear
+close all
+clc
+
+set(groot,'defaultAxesTickLabelInterpreter','latex');
+set(groot,'defaulttextinterpreter','latex');
+set(groot,'defaultLegendInterpreter','latex');
+
+syms x w theta
+
+%% find coefficients
+
+% stencil = [0 2 5 8 10];
+% stencil = [0 1 3 5 6];
+stencil = [0 2 4 6 8];
+
+n = length(stencil);
+
+lagrpol = @(j) prod((x - stencil(1:end ~= j)')./(stencil(j) - stencil(1:end ~= j)'), 1);
+for i = 1:n
+    if n == 1
+        l = -2*x;
+    else
+        l(i) = lagrpol(n-i+1);
+    end
+end
+
+alpha = [zeros(1, max(stencil)), -1, 1];
+betai = int(l, x, -1, 0);
+
+for i = 1:length(stencil)
+    beta(stencil(i)+1) = betai(i);
+end
+beta = [beta 0];
+n = length(beta)-1;
+
+h(w) = sum(alpha.*w.^(0:n))./sum(beta.*w.^(0:n));
+
+s(theta) = exp(1i*theta);
+
+f = matlabFunction(h(s));
+
+xt = @(t) real(f(t));
+yt = @(t) imag(f(t));
+
+figure
+hold on
+grid on
+grid minor
+axis equal
+fplot(xt, yt, [-pi pi], 'meshdensity', 100)
