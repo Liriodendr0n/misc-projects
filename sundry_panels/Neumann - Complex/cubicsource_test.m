@@ -1,0 +1,60 @@
+clear
+close all
+clc
+
+
+z0 = -1;
+z1 = 1;
+th0 = 0.001;
+th1 = 0;
+
+a0 = 0;
+a1 = 1i;
+a2 = -1i;
+a3 = 0;
+
+N = 30;
+
+[xs, ys] = meshgrid(linspace(-2, 2, N), linspace(-2, 2, N));
+Vs = zeros(N, N);
+
+th = angle(z1-z0);
+
+for i = 1:N
+    for j = 1:N
+        Vs(i, j) = cubicsource(xs(i,j)+1i*ys(i,j), z0, z1, th0, th1, a0, a1, a2, a3);
+%         Vs(i, j) = linesource(xs(i,j)+1i*ys(i,j), z0, z1, a0, a1);
+%         Vs(i, j) = conj(a0/(2*pi*(xs(i,j)+1i*ys(i,j))));
+    end
+end
+
+c0 = z0;
+c1 = abs(z0 - z1)*exp(th0*1i);
+c2 = 3*z1 - 3*z0 - 2*abs(z0 - z1)*exp(th0*1i) - abs(z0 - z1)*exp(th1*1i);
+c3 = 2*z0 - 2*z1 + abs(z0 - z1)*exp(th0*1i) + abs(z0 - z1)*exp(th1*1i);
+
+pfun = @(t) polyval([c3, c2, c1, c0], t);
+pdfun = @(t) angle(polyval(polyder([c3, c2, c1, c0]), t));
+
+ts = linspace(0, 1, N);
+zsu = pfun(ts)+0.001i;
+zsl = pfun(ts)-0.001i;
+
+for k = 1:N
+    Vsu(k) = cubicsource(zsu(k), z0, z1, th0, th1, a0, a1, a2, a3);
+    Vsl(k) = cubicsource(zsl(k), z0, z1, th0, th1, a0, a1, a2, a3);
+end
+
+figure
+hold on
+% axis equal
+view(2)
+% surf(xs, ys, real(Vs), 'edgecolor', 'none')
+quiver(xs, ys, real(Vs), imag(Vs))
+fplot(@(t) real(pfun(t)), @(t) imag(pfun(t)), [0, 1], 'linewidth', 2)
+
+
+% figure
+% hold on
+% plot(ts, abs(Vsu-Vsl))
+% plot(ts, abs(Vsu-Vsl))
