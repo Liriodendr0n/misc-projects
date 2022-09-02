@@ -1,4 +1,4 @@
-function [t, y] = bashforth(f, tspan, h, stencil, y0)
+function [t, y, f] = bpmc(f, tspan, h, stencil, y0)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -16,15 +16,20 @@ end
 lagrpol = @(x, x0, j) prod((x - x0(1:end ~= j)')./(x0(j) - x0(1:end ~= j)'), 1);
 
 bi = zeros(1,length(stencil));
+gi = zeros(1,length(stencil));
 b = zeros(1, max(stencil));
 
 for i = 1:length(stencil)
     if stencil == 0
         bi(i) = 1;
+        gi(i) = 1;
         b(stencil(i)+1) = bi(i);
+        g(stencil(i)+1) = gi(i);
     else
         bi(i) = integral(@(x) lagrpol(x, stencil, i), -1, 0, 'AbsTol', 1e-15);
         b(stencil(i)+1) = bi(i);
+        gi(i) = integral(@(x) lagrpol(x, stencil, i), 0, 1, 'AbsTol', 1e-15);
+        g(stencil(i)+1) = gi(i);
     end
 end
 
@@ -49,8 +54,10 @@ for ti = 1:length(ts)
     fhist = circshift(fhist, 1, 2);
     % set new f(t+0, y(t+0))
     fhist(:,1) = f(ts(ti), yt(:,ti));
-    % compute y(t+h) based on history
-    ytp1 = yt(:,ti) + h*sum(b.*fhist, 2);
+    % compute prediction y'(t+h) based on history
+    ytp1p(:,1) = yt(:,ti) + h*sum(b.*fhist, 2);
+    % correct prediction
+    ytp1 = yt(:,ti) + h*sum(g(2:end).*fhist(:,1:end-1), 2) + h*g(1)*f(ts(ti)+h, ytp1p(:,1));
     % update and save y and f and proceed to the next time step
     yt(:,ti+1) = ytp1;
     ft(:,ti+1) = fhist(:,1);

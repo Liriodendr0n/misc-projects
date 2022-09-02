@@ -1,0 +1,20 @@
+clear
+close all
+clc
+
+syms r rdot rddot theta thetadot thetaddot phi phidot phiddot real
+syms mu real
+% r radius
+% theta longitude
+% phi colatitude
+
+R = [r; 0; 0];
+V = [rdot; r*thetadot*sin(phi); r*phidot];
+A = [rddot - r*thetadot^2*sin(phi) - r*phidot^2; ...
+     r*thetaddot*sin(phi) + 2*rdot*thetadot*sin(phi) + 2*rdot*thetadot*phidot*cos(phi); ...
+     r*phiddot + 2*rdot*phidot - r*thetadot^2*sin(phi)*cos(phi)];
+
+eqn = A == [-mu/(r^2); 0; 0];
+
+soln = solve(eqn, [rddot, thetaddot, phiddot]);
+EOMs = [soln.rddot; soln.t

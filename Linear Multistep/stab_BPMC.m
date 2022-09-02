@@ -6,20 +6,27 @@ set(groot,'defaultAxesTickLabelInterpreter','latex');
 set(groot,'defaulttextinterpreter','latex');
 set(groot,'defaultLegendInterpreter','latex');
 
-syms x w z(w) theta
+syms x w theta
 %% Bashforth Predictor - Moulton Corrector
 %% find coefficients
 
 % stencil = 0;
 % stencil = [0 1];
 % stencil = [0 1 2];
-stencil = [0 1 2 3];
+% stencil = [0 1 2 3];
 % stencil = [0 1 3 5 6];
-% stencil = [0 1 4 7 10 11];
-% stencil = [0 1 4 8 12 15 16];
+% stencil = [0 1 3 5 7 8];
+% stencil = [0 1 3 5 7 9 10];
+% stencil = [0 1 3 6 9 12 14 15];
+% stencil = [0 1 3 6 9 12 15 17 18];
 % stencil = [0 1 3 6 9 12 15 18 20 21];
+% stencil = [0 1 3 6 9 13 17 20 23 25 26];
 % stencil = [0 1 3 6 9 13 17 21 24 27 29 30];
+stencil = [0 1 3 6 10 14 18 22 26 29 31 32];
 % stencil = [0 1 3 6 10 14 18 22 26 30 33 35 36];
+% stencil = [0 1 3 6 10 14 19 24 29 33 37 40 42 43];
+% stencil = [0 1 3 6 10 14 19 24 29 34 38 42 45 47 48];
+% stencil = [0 1 3 6 10 14 19 24 29 34 39 43 47 50 52 53];
 
 n = length(stencil);
 
@@ -68,8 +75,9 @@ hold on
 grid on
 grid minor
 axis equal
-plot(x1t(linspace(-pi, pi, 3000)), y1t(linspace(-pi, pi, 3000)), 'marker', '.', 'linestyle', 'none')
-plot(x2t(linspace(-pi, pi, 3000)), y2t(linspace(-pi, pi, 3000)), 'marker', '.', 'linestyle', 'none')
+color = [0.8275 0.0745 0.7608];
+plot(x1t(linspace(-pi, pi, 3000)), y1t(linspace(-pi, pi, 3000)), 'marker', '.', 'linestyle', 'none', 'color', color)
+plot(x2t(linspace(-pi, pi, 3000)), y2t(linspace(-pi, pi, 3000)), 'marker', '.', 'linestyle', 'none', 'color', color)
 
 %%
 

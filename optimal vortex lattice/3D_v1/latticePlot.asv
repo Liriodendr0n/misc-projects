@@ -1,0 +1,30 @@
+clear
+close all
+clc
+
+%%
+
+Nch = 3;
+Nsp = 15;
+
+[xiV, ~, xiC, ~] = chordLattice(Nch, true);
+[etaV, ~, etaC, ~] = spanLattice(Nsp, true, true);
+
+
+cornerPts = [0 3 0; 0 -3 0; 1 -3 0; 1 3 0]';
+
+[xyzL, xyzR, xyzC, xyzTV] = buildLattice(cornerPts, xiV, xiC, etaV, etaC);
+
+figure
+hold on
+grid on
+grid minor
+axis equal
+xlabel('x')
+ylabel('y')
+
+% bound vortices
+plot3([xyzL(1,:); xyzR(1,:)], [xyzL(2,:); xyzR(2,:)], [xyzL(3,:); xyzR(3,:)])
+
+% collocation points
+plot3(xyzC(1,:), xyzC(2,:), xyzC(3,:), 'marker', '.', 'linestyle', 'none')
