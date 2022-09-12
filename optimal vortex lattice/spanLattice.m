@@ -8,6 +8,9 @@ wQ = xw(:,2);
 
 [etaC, wC] = cauchy(etaQ, wQ, 0.5*Rtip, 0.5*Ltip);
 
+etaQ(etaQ>1) = 1;
+etaQ(etaQ<-1) = -1;
+
 end
 
 %% Jacobi
