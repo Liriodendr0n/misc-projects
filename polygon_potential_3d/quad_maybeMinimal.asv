@@ -1,0 +1,54 @@
+clear
+close all
+clc
+
+%%
+
+C = [1 1 -1; -1 1 -1; -1 -1 -1; 1 -1 -1; 1 -1 1; -1 -1 1; -1 1 1; 1 1 1]';
+% C = [1 1 0.1; 1 -1 -0.1; -1 -1 0.1; -1 1 -0.1]';
+
+N = 10;
+
+Nx = 1
+
+d = 0.001;
+
+xg = linspace(-2, 2, N);
+yg = linspace(-2, 2, N);
+zg = linspace(-2, 2, N);
+
+[xg, yg, zg] = ndgrid(xg, yg, zg);
+
+xp = reshape(xg, [1,N^3]);
+yp = reshape(yg, [1,N^3]);
+zp = reshape(zg, [1,N^3]);
+
+xyzp = [xp; yp; zp];
+
+xyzpdx = [xp+d; yp; zp];
+xyzpdy = [xp; yp+d; zp];
+xyzpdz = [xp; yp; zp+d];
+
+for i = 1:N^3
+    O = curveSolidAngle(C, xyzp(:,i));
+    Odx = curveSolidAngle(C, xyzpdx(:,i));
+    Ody = curveSolidAngle(C, xyzpdy(:,i));
+    Odz = curveSolidAngle(C, xyzpdz(:,i));
+    uvwp(:,i) = [(Odx-O)/d; (Ody-O)/d; (Odz-O)/d];
+end
+
+figure
+hold on
+axis equal
+
+view(3)
+plot3([C(1,:),C(1,1)], [C(2,:),C(2,1)], [C(3,:),C(3,1)])
+% scatter3(xp, yp, zp)
+quiver3(xp, yp, zp, uvwp(1,:), uvwp(2,:), uvwp(3,:))
+
+% fimplicit3(@(x,y,z) curveSolidAngle(C, [x; y; z])+1, [-20, 20], 'meshdensity', 50, 'edgecolor', 'none')
+% xlim([-20, 20])
+% ylim([-20, 20])
+% zlim([-20, 20])
+
+
