@@ -18,6 +18,10 @@ classdef DS
                 obj.df = 0;
                 obj.m = 0;
                 obj.n = 0;
+%             elseif nargin == 2
+%                 obj.f = varargin{1};
+%                 obj.df = varargin{2};
+%                 
             elseif nargin == 4      % full access
                 obj.f = varargin{1};
                 obj.df = varargin{2};
@@ -168,7 +172,19 @@ classdef DS
             out = power(a, 0.5);
         end
         
-        % equality and inequalities
+        function out = sign(a)
+            out = sign(opV(a));
+        end
+        function out = abs(a)
+            out = DS(abs(opV(a)), sign(opL(a)).*opD(a));
+            if isreaopL(opV(a)) == false
+                disp("Here be dragons! The compelx modulus is not complex differentiable.")
+            end
+        end
+        
+        %% Logical Operators
+        
+        % comparisons
         function out = lt(a, b)
             out = lt(opV(a), opV(b));
         end
@@ -188,43 +204,138 @@ classdef DS
             out = eq(opV(a), opV(b));
         end
         
-        function out = sign(a)
-            out = sign(opV(a));
+        % conditionals
+        function out = and(a, b)
+            out = and(opV(a), opV(b));
         end
-        function out = abs(a)
-            out = DS(abs(opV(a)), sign(opL(a)).*opD(a));
-            if isreaopL(opV(a)) == false
-                disp("Here be dragons! The compelx modulus is not complex differentiable.")
-            end
+        function out = or(a, b)
+            out = or(opV(a), opV(b));
+        end
+        function out = xor(a, b)
+            out = xor(opV(a), opV(b));
+        end
+        function out = not(a, b)
+            out = not(opV(a), opV(b));
+        end
+        
+        % array
+        function out = any(a)
+            out = any(opV(a));
+        end
+        function out = all(a)
+            out = all(opV(a));
+        end
+        function out = find(a)
+            out = find(opV(a));
+        end
+        function out = isscalar(a)
+            out = isscalar(opV(a));
+        end
+        function out = isvector(a)
+            out = isvector(opV(a));
+        end
+        function out = ismatrix(a)
+            out = ismatrix(opV(a));
+        end
+        function out = islogical(a)
+            out = islogical(opV(a));
+        end
+        function out = logical(a)
+            out = logical(opV(a));
         end
         
         %% Array Operators
         
-        % concatenation
-        function [out] = horzcat(a, b)
+        function [out] = horzcat(a, varargin)
             %horzcat overloads concatenation to propagate it through a DS
-            if and(isa(a, 'DS'), isa(b, 'DS'))
-                out = DS(horzcat(opV(a), opV(b)), horzcat(opD(a), opD(b)), a.n, a.m);
-            elseif and(isa(a, 'double'), isa(b, 'DS'))
-                a = DS(a, zeros(size(a)), b.n, b.m);
-                out = horzcat(a, b);
-            elseif and(isa(a, 'DS'), isa(b, 'double'))
-                b = DS(b, zeros(size(b)), a.n, a.m);
-                out = horzcat(a, b);
+            out = a;
+            if nargin == 1
+                return
+            elseif nargin > 2
+                out = horzcat(out, horzcat(varargin{1}, varargin{2:end}));
+            else
+                b = varargin{:};
+                if and(isa(a, 'DS'), isa(b, 'DS'))
+                    out = DS(horzcat(opV(a), opV(b)), horzcat(opD(a), opD(b)), a.n, a.m);
+                elseif and(isa(a, 'double'), isa(b, 'DS'))
+                    a = DS(a, zeros(size(a)), b.n, b.m);
+                    out = horzcat(a, b);
+                elseif and(isa(a, 'DS'), isa(b, 'double'))
+                    b = DS(b, zeros(size(b)), a.n, a.m);
+                    out = horzcat(a, b);
+                end
             end
         end
-        function [out] = vertcat(a, b)
+        function [out] = vertcat(a, varargin)
             %vertcat overloads concatenation to propagate it through a DS
-            if and(isa(a, 'DS'), isa(b, 'DS'))
-                out = DS(vertcat(opV(a), opV(b)), vertcat(opD(a), opD(b)), a.n, a.m);
-            elseif and(isa(a, 'double'), isa(b, 'DS'))
-                a = DS(a, zeros(size(a)), b.n, b.m);
-                out = vertcat(a, b);
-            elseif and(isa(a, 'DS'), isa(b, 'double'))
-                b = DS(b, zeros(size(b)), a.n, a.m);
-                out = vertcat(a, b);
+            out = a;
+            if nargin == 1
+                return
+            elseif nargin > 2
+                out = vertcat(out, vertcat(varargin{1}, varargin{2:end}));
+            else
+                b = varargin{:};
+                if and(isa(a, 'DS'), isa(b, 'DS'))
+                    out = DS(vertcat(opV(a), opV(b)), vertcat(opD(a), opD(b)), a.n, a.m);
+                elseif and(isa(a, 'double'), isa(b, 'DS'))
+                    a = DS(a, zeros(size(a)), b.n, b.m);
+                    out = vertcat(a, b);
+                elseif and(isa(a, 'DS'), isa(b, 'double'))
+                    b = DS(b, zeros(size(b)), a.n, a.m);
+                    out = vertcat(a, b);
+                end
             end
         end
+        
+        function out = subsref(a, s)
+            %subsref overloads parenthesis indexing to reach into a DS
+            
+            stype = {s.type};
+            ssubs = {s.subs};
+            
+            parflag = false;
+            
+            if strcmp(stype{1}, '()')
+                out = DS(subsref(opV(a), substruct(stype{1}, ssubs{1})), subsref(opD(a), substruct(stype{1}, ssubs{1})), a.n, a.m);
+                stype = stype(2:end);
+                ssubs = ssubs(2:end);
+                parflag = true;
+            end
+            if size(stype, 2) ~= 0
+                if parflag == true
+                else
+                    out = a;
+                end
+                if strcmp(stype{1}, '.')
+                    for i = 1:length(ssubs)
+                        out = out.(ssubs{i});
+                    end
+                end
+            end
+        end
+                
+                
+%             elseif strcmp(stype{1}, '.')
+%                 out = a.(ssubs{1});
+%             elseif strcmp(stype{1}, '{}')
+%                 out = a.(ssubs{1});
+%             end
+%         end
+        
+%         function a = subasgn(a, s, b)
+%             %subsref overloads parenthesis indexing to reach into a DS
+%             if and(isa(a, 'double'), isa(b, 'DS'))
+%                 a = makeC(DS, b.n, b.m, a);
+%             end
+%             
+%             if strcmp(s.type, '()')
+%                 a = DS(subsref(opV(b), s), subsref(opD(b), s), b.n, b.m);
+%             elseif strcmp(s.type, '.')
+%                 a = b.(s.subs);
+%             elseif strcmp(s.type, '{}')
+%                 a = b.(s.subs);
+%             end
+%         end
         
         %% Matrix Operatiors
         

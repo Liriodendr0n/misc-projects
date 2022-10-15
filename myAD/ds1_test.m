@@ -22,47 +22,40 @@ clc
 
 %% inverse
 
-x = DSvar(1, 2, 1, 1);
-
-A = [randn, x; randn, randn];
-
-I = inv(A);
-
-Afd = A.f;
-Afd_dx = Afd + [0, 1e-9; 0, 0];
-
-(inv(Afd_dx) - inv(Afd))./1e-9;
--inv(Afd)*[0, 1; 0, 0]*inv(Afd);
-I.df.f
-
-2*inv(Afd)*[0, 1; 0, 0]*inv(Afd)*[0, 1; 0, 0]*inv(Afd);
-I.df.df;
-
-X = ainit(1, 2);
-Y = inv([Afd(1,1), X; Afd(2,1), Afd(2,2)]);
-dY = adiff(Y, 1);
-ddY = adiff(Y, 2);
-
-[Y(1,1).c(2), Y(1,2).c(2); Y(2,1).c(2), Y(2,2).c(2)]
-[Y(1,1).c(3), Y(1,2).c(3); Y(2,1).c(3), Y(2,2).c(3)];
+% x = DSvar(1, 2, 1, 1);
+% 
+% A = [randn, x; randn, randn];
+% 
+% I = inv(A);
+% 
+% I.df.f;
+% I.df.df
+% 
+% X = ainit(1, 2);
+% Y = inv([A.f(1,1), X; A.f(2,1), A.f(2,2)]);
+% dY = adiff(Y, 1);
+% ddY = adiff(Y, 2);
+% 
+% [Y(1,1).c(2), Y(1,2).c(2); Y(2,1).c(2), Y(2,2).c(2)];
+% [Y(1,1).c(3), Y(1,2).c(3); Y(2,1).c(3), Y(2,2).c(3)]
 
 %% matmul
 
-% A = [1, 2; 3, 4];
-% B = [4, 5; 6, 7];
-% 
-% x = DSvar(1, 1, 1, 0);
-% 
-% AD = [A(1,1), A(1,2)+x; A(2,1), A(2,2)];
-% BD = [B(1,1), B(1,2)+x; B(2,1), B(2,2)];
-% 
-% CD = AD*BD;
-% 
-% dx = 1e-9;
-% dX = [0, dx; 0, 0];
-% 
-% ((A+[0, dx; 0, 0])*(B+[0, dx; 0, 0]) - A*B)/dx
-% CD.df
+A = [1, 2; 3, 4];
+B = [4, 5; 6, 7];
+
+x = DSvar(1, 1, 1, 0);
+
+AD = [A(1,1)+x, A(1,2)+x; A(2,1), A(2,2)];
+BD = [B(1,1), B(1,2)+x; B(2,1), B(2,2)];
+
+CD = AD*BD;
+
+dx = 1e-9;
+dX = [0, dx; 0, 0];
+
+((A+[dx, dx; 0, 0])*(B+[0, dx; 0, 0]) - A*B)/dx
+
 
 
 %% eigen
