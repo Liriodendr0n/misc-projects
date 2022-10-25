@@ -1,0 +1,199 @@
+clear
+close all
+clc
+
+%% differentiating a solution
+
+% % system to be solved
+% f = @(x, c) [x(1).^2 - sin(x(2)) + c(1)+sin(0.5-c(1)); tan(x(1)) - sqrt(x(2)+1) + c(2)];
+% 
+% % parameter values
+% C = [-0.7; 0.5];
+% 
+% % solution
+% opts = optimoptions('fsolve', 'Display', 'off');
+% x0 = [1; 3];
+% X = fsolve(@(x) f(x, C), x0, opts);
+% 
+% % sensitivity
+% 
+% % finite difference
+% dc = 1e-3;
+% Xc1 = fsolve(@(x) f(x, C+[dc; 0]), x0, opts);
+% Xc2 = fsolve(@(x) f(x, C+[0; dc]), x0, opts);
+% 
+% dXdC_FD = [(Xc1-X)/dc, (Xc2-X)/dc]
+% 
+% % automatic differentiation
+% x1 = DSvar(4, 1, 1, X(1));
+% x2 = DSvar(4, 1, 2, X(2));
+% c1 = DSvar(4, 1, 3, C(1));
+% c2 = DSvar(4, 1, 4, C(2));
+% 
+% ff = f([x1; x2], [c1; c2]);
+% J = DSjac(ff);
+% Jx = J(1:2,1:2);
+% Jc = J(1:2,3:4);
+% 
+% dXdC_AD = Jx\-Jc
+
+%% differentiating a minimizer
+
+% % function to be minimized
+% % x the minimizer given parameters c
+% f = @(x, c) cosh(sqrt(x(1).^2 + x(2).^2)) - exp(-(x(1)-c(1)+sin(c(1)*x(2))).^2 - (x(2)-c(2)).^2);
+% 
+% % parameter values
+% C = [1; 0];
+% 
+% % solution
+% 
+% opts = optimoptions('fmincon', 'Display', 'off');
+% lb = [-2, -2];
+% ub = [2, 2];
+% x0 = [0; 0];
+% X = fmincon(@(x) f(x, C), x0, [], [], [], [], lb', ub', [], opts);
+% 
+% % sensitivity
+% 
+% % finite difference
+% dc = 1e-3;
+% Xc1 = fmincon(@(x) f(x, C+[dc; 0]), x0, [], [], [], [], lb', ub', [], opts);
+% Xc2 = fmincon(@(x) f(x, C+[0; dc]), x0, [], [], [], [], lb', ub', [], opts);
+% 
+% dXdC_FD = [(Xc1-X)/dc, (Xc2-X)/dc]
+% 
+% % automatic differentiation and adjoint
+% % declare both X and C in the same DSvar group
+% x1 = DSvar(4, 2, 1, X(1));
+% x2 = DSvar(4, 2, 2, X(2));
+% c1 = DSvar(4, 2, 3, C(1));
+% c2 = DSvar(4, 2, 4, C(2));
+% 
+% ff = f([x1; x2], [c1, c2]);
+% HH = DShess(ff);
+% 
+% % hessian with respect to x
+% Hx = HH(1:2,1:2);
+% 
+% % cross jacobian with respect to x and c
+% Jxc = HH(1:2,3:4);
+% 
+% % derivative of minimizer x with respect to parameters c
+% dXdC_AD = Hx\-Jxc
+
+%% differentiating an ODE solution
+
+% lorenz system
+f = @(t, x, c) [-c(1,:,:).*x(1,:,:) + c(1,:,:).*x(2,:,:); c(3,:,:).*x(1,:,:) - x(2,:,:) - x(1,:,:).*x(3,:,:); -c(2,:,:).*x(3,:,:) + x(1,:,:).*x(2,:,:)];
+
+% parameters and initial conditions
+C = [10; 8/3; 28];
+x0 = [1; 1; 1];
+tspan = [0, 1];
+
+% solution
+odesoln = ode45(@(t, x) f(t, x, C), tspan, x0);
+
+t = odesoln.x';
+x = odesoln.y';
+xp = deval(odesoln, linspace(tspan(1), tspan(2), 300));
+xp = xp';
+
+% sensitivity
+
+% finite difference
+dc = 1e-3;
+solnc = ode45(@(t, x) f(t, x, C+[0; dc; 0]), tspan, x0+[0; 0; 0]);
+dXdC_FD = (deval(solnc, t)'-x)./dc;
+
+% automatic differentiation (very slow because of needing autoJac
+% could be accelerated with smarter posing of the adjoint problem
+% maybe with deval interpolation instead of a whole new solve
+% g = @(t, x, y, c) autoJac(@(x) f(t, x, C), x)*y + autoJac(@(c) f(t, x, c), c)*[0; 1; 0];
+% [T, X] = ode45(@(t, X) [f(t, X(1:3), C); g(t, X(1:3), X(4:6), C)], tspan, [x0; [0; 0; 0]]);
+
+% new ode integration, same timestep schedule
+h = diff(t);
+nq = [0, 1/5, 3/10, 4/5, 8/9, 1, 1];
+tD = reshape(t(1:end-1) + diff(t).*nq, [1, 1, length(nq)*numel(t)-length(nq)]);
+xD = permute(deval(odesoln, tD), [1, 3, 2]);
+
+
+% Jx
+x1 = DSvar(3, 1, 1, xD(1,:));
+x2 = DSvar(3, 1, 2, xD(2,:));
+x3 = DSvar(3, 1, 3, xD(3,:));
+fx = f(tD, [x1; x2; x3], C);
+Jx = permute(cat(3, partial(fx, [1, 0, 0]), partial(fx, [0, 1, 0]), partial(fx, [0, 0, 1])), [1, 3, 2]);
+
+% Jc
+c1 = DSvar(3, 1, 1, C(1));
+c2 = DSvar(3, 1, 2, C(2));
+c3 = DSvar(3, 1, 3, C(3));
+fc = f(tD, xD, [c1; c2; c3]);
+Jc = cat(2, partial(fc, [1, 0, 0]), partial(fc, [0, 1, 0]), partial(fc, [0, 0, 1]));
+
+
+%% adjoint integration
+y = [0; 0; 0];
+
+dC = [1; 0; 0];
+
+B = [
+    1/5         3/40    44/45   19372/6561      9017/3168       35/384
+    0           9/40    -56/15  -25360/2187     -355/33         0
+    0           0       32/9    64448/6561      46732/5247      500/1113
+    0           0       0       -212/729        49/176          125/192
+    0           0       0       0               -5103/18656     -2187/6784
+    0           0       0       0               0               11/84
+    0           0       0       0               0               0
+    ];
+a = [zeros(1,7); B'];
+c = nq';
+b = a(7,:);
+
+for i = 1:length(t)-1
+    I = i*length(nq)-length(nq);
+    
+    k1 = Jx(:,:,I+1)*(y(:,i)) + Jc(:,:,I+1)*dC;
+    k2 = Jx(:,:,I+2)*(y(:,i)+h(i)*(a(2,1)*k1)) + Jc(:,:,I+2)*dC;
+    k3 = Jx(:,:,I+3)*(y(:,i)+h(i)*(a(3,1)*k1 + a(3,2)*k2)) + Jc(:,:,I+3)*dC;
+    k4 = Jx(:,:,I+4)*(y(:,i)+h(i)*(a(4,1)*k1 + a(4,2)*k2 + a(4,3)*k3)) + Jc(:,:,I+4)*dC;
+    k5 = Jx(:,:,I+5)*(y(:,i)+h(i)*(a(5,1)*k1 + a(5,2)*k2 + a(5,3)*k3 + a(5,4)*k4)) + Jc(:,:,I+5)*dC;
+    k6 = Jx(:,:,I+6)*(y(:,i)+h(i)*(a(6,1)*k1 + a(6,2)*k2 + a(6,3)*k3 + a(6,4)*k4 + a(6,5)*k5)) + Jc(:,:,I+6)*dC;
+    k7 = Jx(:,:,I+7)*(y(:,i)+h(i)*(a(7,1)*k1 + a(7,2)*k2 + a(7,3)*k3 + a(7,4)*k4 + a(7,5)*k5 + a(7,6)*k6)) + Jc(:,:,I+7)*dC;
+    
+    y(:,i+1) = h(i)*(b(1)*k1 + b(2)*k2 + b(3)*k3 + b(4)*k4 + b(5)*k5 + b(6)*k6 + b(7)*k7);
+    
+end
+
+y = y';
+
+%%
+
+% for i = 1:3*numel(t)-3
+%     Jx(:,:,i) = DSjac(f(tq(i), [x1(i); x2(i); x3(i)], C));
+% end
+
+% dXdC_AD = X(:,4:6);
+% 
+colors = lines(7);
+% 
+figure
+hold on
+view([-1 2 1])
+grid on
+grid minor
+
+plot3(xp(:,1),xp(:,2),xp(:,3), 'color', 'black')
+plot3(x(:,1)+dXdC_FD(:,1),x(:,2)+dXdC_FD(:,2),x(:,3)+dXdC_FD(:,3), 'color', colors(1,:))
+% plot3(X(:,1)+dXdC_AD(:,1),X(:,2)+dXdC_AD(:,2),X(:,3)+dXdC_AD(:,3), 'color', colors(2,:))
+plot3(x(:,1),x(:,2),x(:,3), 'color', 'black')
+plot3(x(:,1)+y(:,1),x(:,2)+y(:,2),x(:,3)+y(:,3))
+
+xlabel('x')
+ylabel('y')
+zlabel('z')
+
+% legend('Base Solution', 'Finite Difference Perturbation', 'Automatic Differentiation Perturbation', 'location', 'best')

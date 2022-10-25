@@ -30,7 +30,7 @@ classdef DS
             end
         end
         
-        %% DS operators
+        %% DS Operators
         
         % traversal operations
         function out = opV(obj)
@@ -58,31 +58,62 @@ classdef DS
                 if or(Mder == 0, Nvar == 0)
                     out = val;
                 elseif or(Mder > 0, Nvar > 0)
-                    out = DS(makeC(obj, Nvar-1, Mder, val), makeC(obj, Nvar, Mder-1, 0), obj.n, obj.m);
+                    out = DS(makeC(obj, Nvar-1, Mder, val), makeC(obj, Nvar, Mder-1, zeros(size(val))), obj.n, obj.m);
+                end
+        end
+        function out = makeC1(obj, Nvar, Mder, val)
+            %makeC creates constant structure
+                obj.n = Nvar;
+                obj.m = Mder;
+                if or(Mder == 0, Nvar == 0)
+                    out = val;
+                elseif or(Mder > 0, Nvar > 0)
+                    out = DS(makeC(obj, Nvar-1, Mder, val), makeC(obj, Nvar, Mder-1, ones(size(val))), obj.n, obj.m);
                 end
         end
         function out = makeDSvar(obj, Nvar, Mder, varnum, val)
             %makeDSvar creates variable structure
+            if isa(val, 'DS')
+%                 der = DS(1, opD(val), val.n, val.m);
+%                 zer = DS(0, 0, val.n, val.m);
+%                 der = opD(val);
+                der = DSconst(val.n, val.m, 1);
+                zer = DSconst(val.n, val.m, 0);
+%                 der = 1;
+%                 zer = 0;
+            else
+                der = ones(size(val));
+                zer = zeros(size(val));
+            end
             if varnum < Nvar
-                out = DS(makeDSvar(obj, Nvar-1, Mder, varnum, val), makeC(obj, Nvar, Mder-1, 0), Nvar, Mder);
+                out = DS(makeDSvar(obj, Nvar-1, Mder, varnum, val), makeC(obj, Nvar, Mder-1, zer), Nvar, Mder);
             elseif varnum == Nvar
-                out = DS(makeC(obj, Nvar-1, Mder, val), makeC(obj, Nvar, Mder-1, 1), Nvar, Mder);
-            elseif varnum > Nvar
-                out = DS(makeC(obj, Nvar-1, Mder, val), makeC(obj, Nvar, Mder-1, 1), Nvar, Mder);
+                out = DS(makeC(obj, Nvar-1, Mder, val), makeC(obj, Nvar, Mder-1, der), Nvar, Mder);
+%             elseif varnum > Nvar
+%                 out = DS(makeC(obj, Nvar-1, Mder, val), makeC(obj, Nvar, Mder-1, 1), Nvar, Mder);
             end
         end
         
         % outputs: values, partials, gradients, hessians
         function out = partial(obj, Did)
-            %partial extracts partial derivatives from a DS
+            %partial extracts a partial derivative value from a DS
             j = length(Did);
+            S = sum(Did);
+            M = obj.m;
             while j > 0
                 while Did(j) > 0
                     obj = opD(obj);
                     Did(j) = Did(j)-1;
+%                     disp("D")
                 end
+                if and(sum(Did) == 0, S == M)
+%                     disp("B")
+                    break
+                else
                 obj = opV(obj);
                 j = j-1;
+%                 disp("V")
+                end
             end
             out = obj;
         end
@@ -92,27 +123,55 @@ classdef DS
             out = partial(obj, Did);
         end 
         function out = DSgrad(obj)
-            %DSgrad makes the gradient vector of a DS
+            %DSgrad makes the gradient vector of a scalar valued DS
+            if length(obj) ~= 1
+                disp("Gradients can only be made for scalar valued DSs")
+                return
+            end
             Did = zeros(obj.n,1);
-            out = zeros(obj.n,1);
+            out = zeros(obj.n,length(obj));
+%             out = DS;
             for i = 1:obj.n
                 Did(i) = 1;
+%                 partial(obj, Did);
                 out(i,1) = partial(obj, Did);
+%                 out = [out; partial(obj, Did)];
+                Did(i) = 0;
+            end
+        end
+        function out = DSjac(obj)
+            %DSjac makes the jacobian matrix of a vector valued DS
+            Did = zeros(obj.n,1);
+            out = zeros(length(obj), obj.n);
+%             out = DS;
+            for i = 1:obj.n
+                Did(i) = 1;
+                partial(obj, Did);
+                out(:,i) = partial(obj, Did).';
+%                 out = [out, partial(obj, Did).'];
                 Did(i) = 0;
             end
         end
         function out = DShess(obj)
-            %DShess makes the hessian matrix of a DS
+            %DShess makes the hessian matrix of a scalar valued DS
+%             if length(obj) ~= 1
+%                 disp("Hessians can only be made for scalar valued DSs")
+%                 return
+%             end
             Did = zeros(obj.n,1);
             out = zeros(obj.n);
+%             out = DS;
             for i = 1:obj.n
+%                 Rout = DS;
                 for j = 1:obj.n
                     Did(i) = 1;
                     Did(j) = Did(j)+1;
                     out(i,j) = partial(obj, Did);
+%                     Rout = [Rout, partial(obj, Did)];
                     Did(i) = 0;
                     Did(j) = 0;
                 end
+%                 out = [out; Rout];
             end
         end
         
@@ -182,6 +241,17 @@ classdef DS
             end
         end
         
+        function out = chain(a, b)
+            %chain computes a direct product, used in explicit chain rules
+            if and(isa(a, 'DS'), isa(b, 'DS'))
+                out = DS(opV(a) .* opV(b), opD(a) .* opD(b), a.n, a.m);
+            elseif and(isa(a, 'double'), isa(b, 'DS'))
+                out = DS(a .* opV(b), a .* opD(b), b.n, b.m);
+            elseif and(isa(a, 'DS'), isa(b, 'double'))
+                out = DS(opV(a) .* b, opD(a) .* b, a.n, a.m);
+            end
+        end
+        
         %% Logical Operators
         
         % comparisons
@@ -246,6 +316,18 @@ classdef DS
         
         %% Array Operators
         
+%         % size BREAKS CONCATENATION?????????
+%         function out = size(obj)
+%             %size gets size of underlying value node
+%             out = size(opV(obj));
+%             disp("hello")
+%         end
+        function out = length(a)
+            %size gets size of underlying value node
+            out = length(opV(a));
+        end
+        
+        % concatenation
         function [out] = horzcat(a, varargin)
             %horzcat overloads concatenation to propagate it through a DS
             out = a;
@@ -287,57 +369,46 @@ classdef DS
             end
         end
         
+        % reference and assignment
+        % only supported indexing is A( , ) and V(A( , )) or D(A( , ))
+        % anything else would mean a DS is treated differently than a tree of reals in a trenchcoat
         function out = subsref(a, s)
             %subsref overloads parenthesis indexing to reach into a DS
-            
             stype = {s.type};
             ssubs = {s.subs};
-            
-            parflag = false;
+            sstruct = substruct(stype{1}, ssubs{1});
+            parflag = false;    % has the DS been array-indexed yet
             
             if strcmp(stype{1}, '()')
-                out = DS(subsref(opV(a), substruct(stype{1}, ssubs{1})), subsref(opD(a), substruct(stype{1}, ssubs{1})), a.n, a.m);
+                out = DS(subsref(opV(a), sstruct), subsref(opD(a), sstruct), a.n, a.m);
                 stype = stype(2:end);
                 ssubs = ssubs(2:end);
-                parflag = true;
+                parflag = true; % it now has
             end
-            if size(stype, 2) ~= 0
-                if parflag == true
-                else
-                    out = a;
+            
+            if size(stype, 2) ~= 0  % if indices remain after parenthesis
+                if parflag == false
+                    out = a;    % since the first if didn't cut a slice
                 end
-                if strcmp(stype{1}, '.')
-                    for i = 1:length(ssubs)
-                        out = out.(ssubs{i});
+                for i = 1:length(ssubs) % apply V/D dot indices
+                    if isa(out, 'double')
+                        disp("leaf node")
                     end
+                    out = out.(ssubs{i});
                 end
             end
         end
-                
-                
-%             elseif strcmp(stype{1}, '.')
-%                 out = a.(ssubs{1});
-%             elseif strcmp(stype{1}, '{}')
-%                 out = a.(ssubs{1});
-%             end
-%         end
         
-%         function a = subasgn(a, s, b)
-%             %subsref overloads parenthesis indexing to reach into a DS
-%             if and(isa(a, 'double'), isa(b, 'DS'))
-%                 a = makeC(DS, b.n, b.m, a);
-%             end
-%             
-%             if strcmp(s.type, '()')
-%                 a = DS(subsref(opV(b), s), subsref(opD(b), s), b.n, b.m);
-%             elseif strcmp(s.type, '.')
-%                 a = b.(s.subs);
-%             elseif strcmp(s.type, '{}')
-%                 a = b.(s.subs);
-%             end
-%         end
-        
-        %% Matrix Operatiors
+        function out = subsasgn(a, s, b)
+            if any(double([s.type]) == 46)
+                disp("Subscripted assignment of DS fields is not supported")
+                disp("This is a MATLAB limitation")
+                return
+            end
+            out = DS(subsasgn(opV(a), s, opV(b)), subsasgn(opD(a), s, opD(b)), b.n, b.m);
+        end
+
+        %% Matrix Operators
         
         % matrix multiplication
         function out = mtimes(a, b)
